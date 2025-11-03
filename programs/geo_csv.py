@@ -7,24 +7,37 @@ from shapely.geometry import MultiLineString
 import copy
 from shapely.wkt import loads
 
+from dataclasses import dataclass
+from typing import List, Optional, Dict
+import csv
+import os
 
 @dataclass
 class GeoNode:
     osm_type: Optional[str]
     osm_id: Optional[str]
     kind: Optional[str]
-    name_primary: Optional[str]
+    name_pl: Optional[str]
     name_en: Optional[str]
     name_ru: Optional[str]
-    name_ua: Optional[str]
+    name_uk: Optional[str]
     slug_pl: Optional[str]
     slug_en: Optional[str]
     slug_ru: Optional[str]
-    slug_ua: Optional[str]
+    slug_uk: Optional[str]
     name_norm: Optional[str]
-    city_name: Optional[str]
-    district_name: Optional[str]
-    neighbourhood_name: Optional[str]
+    city_name_pl: Optional[str]
+    city_name_en: Optional[str]
+    city_name_ru: Optional[str]
+    city_name_uk: Optional[str]
+    district_name_pl: Optional[str]
+    district_name_en: Optional[str]
+    district_name_ru: Optional[str]
+    district_name_uk: Optional[str]
+    neighbourhood_name_pl: Optional[str]
+    neighbourhood_name_en: Optional[str]
+    neighbourhood_name_ru: Optional[str]
+    neighbourhood_name_uk: Optional[str]
     geom: Optional[str]
     bbox: Optional[str]
     raw: Optional[str]
@@ -39,6 +52,7 @@ def read_geo_csv(file_path: str) -> Dict[str, List[GeoNode]]:
 
     if not os.path.exists(file_path):
         return result
+
     with open(file_path, newline='', encoding='utf-8') as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
@@ -46,18 +60,27 @@ def read_geo_csv(file_path: str) -> Dict[str, List[GeoNode]]:
                 osm_type=row.get('osm_type'),
                 osm_id=row.get('osm_id'),
                 kind=row.get('kind'),
-                name_primary=row.get('name_primary'),
+                name_pl=row.get('name_pl'),
                 name_en=row.get('name_en'),
                 name_ru=row.get('name_ru'),
-                name_ua=row.get('name_ua'),
+                name_uk=row.get('name_uk'),
                 slug_pl=row.get('slug_pl'),
                 slug_en=row.get('slug_en'),
                 slug_ru=row.get('slug_ru'),
-                slug_ua=row.get('slug_ua'),
+                slug_uk=row.get('slug_uk'),
                 name_norm=row.get('name_norm'),
-                city_name=row.get('city_name'),
-                district_name=row.get('district_name'),
-                neighbourhood_name=row.get('neighbourhood_name'),
+                city_name_pl=row.get('city_name_pl'),
+                city_name_en=row.get('city_name_en'),
+                city_name_ru=row.get('city_name_ru'),
+                city_name_uk=row.get('city_name_uk'),
+                district_name_pl=row.get('district_name_pl'),
+                district_name_en=row.get('district_name_en'),
+                district_name_ru=row.get('district_name_ru'),
+                district_name_uk=row.get('district_name_uk'),
+                neighbourhood_name_pl=row.get('neighbourhood_name_pl'),
+                neighbourhood_name_en=row.get('neighbourhood_name_en'),
+                neighbourhood_name_ru=row.get('neighbourhood_name_ru'),
+                neighbourhood_name_uk=row.get('neighbourhood_name_uk'),
                 geom=row.get('geom'),
                 bbox=row.get('bbox'),
                 raw=row.get('raw')
@@ -73,6 +96,7 @@ def read_geo_csv(file_path: str) -> Dict[str, List[GeoNode]]:
             elif kind == "district":
                 result["districts"].append(node)
     return result
+
 
 from dataclasses import asdict
 import os
@@ -159,7 +183,7 @@ def merge_streets_by_city(streets: List[GeoNode]):
     streets_sorted: Dict[str, List[GeoNode]] = {}
 
     for street in streets:
-        street_id = f"{street.name_primary}-{street.city_name}"
+        street_id = f"{street.name_pl}-{street.city_name_pl}"
 
         if street_id not in streets_sorted:
             streets_sorted[street_id] = [street]
