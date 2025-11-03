@@ -1,5 +1,5 @@
 from dataclasses import dataclass, asdict
-from typing import List, Optional, Dict, cast
+from typing import List, Optional, Dict, cast, Literal
 import csv
 import os
 from shapely import wkt
@@ -16,7 +16,7 @@ import os
 class GeoNode:
     osm_type: Optional[str]
     osm_id: Optional[str]
-    kind: Optional[str]
+    kind: Literal["street", "city", "neighbourhood", "district", "unknown"]
     name_pl: Optional[str]
     name_en: Optional[str]
     name_ru: Optional[str]
@@ -59,7 +59,7 @@ def read_geo_csv(file_path: str) -> Dict[str, List[GeoNode]]:
             node = GeoNode(
                 osm_type=row.get('osm_type'),
                 osm_id=row.get('osm_id'),
-                kind=row.get('kind'),
+                kind=row.get('kind') if row.get('kind') in ("city", "district", "neighbourhood", "district") else "unknown",
                 name_pl=row.get('name_pl'),
                 name_en=row.get('name_en'),
                 name_ru=row.get('name_ru'),
