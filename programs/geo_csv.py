@@ -197,7 +197,6 @@ def merge_streets_by_distance(streets: List[GeoNode]) -> List[GeoNode]:
     merged: List[GeoNode] = []
 
     while (len(unmerged) > 0):
-        print("WHILE HIGHER")
         base = unmerged[0]
 
         if (len(unmerged) == 1):
@@ -209,7 +208,6 @@ def merge_streets_by_distance(streets: List[GeoNode]) -> List[GeoNode]:
         current_geom = loads(cast(str, currently_merged.geom))
         
         while True:
-            print("WHILE LOWER")
             currently_merging: List[GeoNode] = []
             merged_anything = False
 
