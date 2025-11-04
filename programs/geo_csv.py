@@ -12,11 +12,16 @@ from typing import List, Optional, Dict
 import csv
 import os
 
+
+Kind = Literal["city", "district", "neighbourhood", "street", "unknown"]
+kind_map = {"city": "city", "district": "district", "neighbourhood": "neighbourhood", "street": "street"}
+
+
 @dataclass
 class GeoNode:
     osm_type: Optional[str]
     osm_id: Optional[str]
-    kind: Literal["street", "city", "neighbourhood", "district", "unknown"]
+    kind: Kind
     name_pl: Optional[str]
     name_en: Optional[str]
     name_ru: Optional[str]
@@ -59,7 +64,14 @@ def read_geo_csv(file_path: str) -> Dict[str, List[GeoNode]]:
             node = GeoNode(
                 osm_type=row.get('osm_type'),
                 osm_id=row.get('osm_id'),
-                kind=row.get('kind') if row.get('kind') in ("city", "district", "neighbourhood", "district") else "unknown",
+                kind=cast(
+                    Kind, 
+                    (
+                        row.get('kind') 
+                        if row.get('kind') is not None and row.get('kind') in ["city", "district", "neighbourhood", "street"] 
+                        else "unknown"
+                    )
+                ),
                 name_pl=row.get('name_pl'),
                 name_en=row.get('name_en'),
                 name_ru=row.get('name_ru'),
@@ -162,16 +174,17 @@ def collapse_street(streets: List[GeoNode]):
 
     multi_line_string = MultiLineString(all_coords)
     collapsed_street = copy.copy(streets[0]) 
+    print(f"collapsed street have kind: {collapsed_street.kind}")
     collapsed_street.geom = multi_line_string.wkt
 
     return collapsed_street
 
 def merge_streets(streets: List[GeoNode]) -> List[GeoNode]:
     merged:List[GeoNode] = []
-    by_city = merge_streets_by_city(streets)
+    grouped_by_city = group_streets_by_city(streets)
 
-    for s in by_city:
-        city_streets = by_city[s]
+    for s in grouped_by_city:
+        city_streets = grouped_by_city[s]
         merged_city_streets = merge_streets_by_distance(city_streets)
         for merged_street in merged_city_streets:
             merged.append(merged_street)
@@ -179,17 +192,17 @@ def merge_streets(streets: List[GeoNode]) -> List[GeoNode]:
     return merged
 
 
-def merge_streets_by_city(streets: List[GeoNode]):
-    streets_sorted: Dict[str, List[GeoNode]] = {}
+def group_streets_by_city(streets: List[GeoNode]):
+    streets_grouped: Dict[str, List[GeoNode]] = {}
 
     for street in streets:
         street_id = f"{street.name_pl}-{street.city_name_pl}"
 
-        if street_id not in streets_sorted:
-            streets_sorted[street_id] = [street]
+        if street_id not in streets_grouped:
+            streets_grouped[street_id] = [street]
         else:
-            streets_sorted[street_id].append(street)
-    return streets_sorted
+            streets_grouped[street_id].append(street)
+    return streets_grouped
 
 
 def merge_streets_by_distance(streets: List[GeoNode]) -> List[GeoNode]:
