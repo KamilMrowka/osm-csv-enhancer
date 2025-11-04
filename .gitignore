@@ -1,2 +1,4 @@
 .env
 programs/__pycache__/
+data/*.csv
+data/results/
