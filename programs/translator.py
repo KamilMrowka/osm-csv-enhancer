@@ -28,6 +28,8 @@ translatedNeighbourhoods: Dict[str, GeoTranslation] = {}
 translatedStreets: Dict[str, GeoTranslation] = {} 
 
 translate_batch_size = 100
+translated: List[GeoNode] = []
+
 def getTranslationsDictionary(translations: List[GeoTranslation]):
     dictionary: Dict[str, GeoTranslation] = {}
     for translation in translations:
@@ -39,99 +41,104 @@ def translate(cities: List[GeoNode], districts: List[GeoNode], neighbourhoods: L
     print("Translating Started...")
 
     print("Translating Cities")
-    city_translations = getOpenAITranslations(cities, "city").translations
-    city_translations_dict = getTranslationsDictionary(city_translations)
-    translatedCities.update(city_translations_dict)
 
-    for city in cities:
-        setTranslation(city, city_translations_dict[cast(str, city.name_pl)], "city")
+   
+    try:
+        city_translations = getOpenAITranslations(cities, "city").translations
+        city_translations_dict = getTranslationsDictionary(city_translations)
+        translatedCities.update(city_translations_dict)
 
-    print("cities done, translating districts")
-    # Translate Disctrics and add City Translation to them
-    for i in range(0, len(districts), translate_batch_size):
+        for city in cities:
+            setTranslation(city, city_translations_dict[cast(str, city.name_pl)], "city")
 
-        to_translate = districts[i:i+translate_batch_size]
-        district_translations = getOpenAITranslations(to_translate, "district").translations
-        district_translations_dict = getTranslationsDictionary(district_translations)
-        translatedDistricts.update(district_translations_dict)
+        print("cities done, translating districts")
+        # Translate Disctrics and add City Translation to them
+        for i in range(0, len(districts), translate_batch_size):
 
-        for location in to_translate:
-            district_translation = translatedDistricts[cast(str, location.name_pl)]
-            setTranslation(location, district_translation, "district")
-           
-            city_name = location.city_name_pl
-            if (city_name is not None):
-                city_translation = findInAlreadyTranslated(city_name, "city")
-                if (city_translation is None):
-                    city_translation = getOpenAITranslation(city_name, "city")
-                    translatedCities[city_name] = city_translation
-                setTranslation(location, city_translation, "city")
+            to_translate = districts[i:i+translate_batch_size]
+            district_translations = getOpenAITranslations(to_translate, "district").translations
+            district_translations_dict = getTranslationsDictionary(district_translations)
+            translatedDistricts.update(district_translations_dict)
 
-    print("districts done, translating neighbourhoods")
-    # Translate neighbourhoods and try to add city and district names from already translated
-    for i in range(0, len(neighbourhoods), translate_batch_size):
-        to_translate = neighbourhoods[i:i+translate_batch_size]
-        neighbourhood_translations = getOpenAITranslations(to_translate, "neighbourhood").translations
-        neighbourhood_translations_dict = getTranslationsDictionary(neighbourhood_translations)
-        translatedNeighbourhoods.update(neighbourhood_translations_dict)
-
-        for location in to_translate:
-            neighbourhood_translation = neighbourhood_translations_dict[cast(str, location.name_pl)]
-            setTranslation(location, neighbourhood_translation, "neighbourhood")
-           
-            city_name = location.city_name_pl
-            if (city_name is not None):
-                city_translation = findInAlreadyTranslated(city_name, "city")
-                if (city_translation is None):
-                    city_translation = getOpenAITranslation(city_name, "city")
-                    translatedCities[city_name] = city_translation
-                setTranslation(location, city_translation, "city")
-
-            district_name = location.district_name_pl
-            if (district_name is not None):
-                district_translation = findInAlreadyTranslated(district_name, "district")
-                if (district_translation is None):
-                    district_translation = getOpenAITranslation(district_name, "district")
-                    translatedDistricts[district_name] = district_translation
+            for location in to_translate:
+                district_translation = translatedDistricts[cast(str, location.name_pl)]
                 setTranslation(location, district_translation, "district")
+               
+                city_name = location.city_name_pl
+                if (city_name is not None):
+                    city_translation = findInAlreadyTranslated(city_name, "city")
+                    if (city_translation is None):
+                        city_translation = getOpenAITranslation(city_name, "city")
+                        translatedCities[city_name] = city_translation
+                    setTranslation(location, city_translation, "city")
 
-    print("neighbourhoods done, translating streets")
-    # Translate Streets
-    for i in range(0, len(streets), translate_batch_size):
-        to_translate = streets[i:i+translate_batch_size]
-        street_translations = getOpenAITranslations(to_translate, "street").translations
-        street_translations_dict = getTranslationsDictionary(street_translations)
-        translatedStreets.update(street_translations_dict)
+        print("districts done, translating neighbourhoods")
+        # Translate neighbourhoods and try to add city and district names from already translated
+        for i in range(0, len(neighbourhoods), translate_batch_size):
+            to_translate = neighbourhoods[i:i+translate_batch_size]
+            neighbourhood_translations = getOpenAITranslations(to_translate, "neighbourhood").translations
+            neighbourhood_translations_dict = getTranslationsDictionary(neighbourhood_translations)
+            translatedNeighbourhoods.update(neighbourhood_translations_dict)
 
-        for location in to_translate:
-            street_translation = street_translations_dict[cast(str, location.name_pl)]
-            setTranslation(location, street_translation, "street")
-           
-            city_name = location.city_name_pl
-            if (city_name is not None):
-                city_translation = findInAlreadyTranslated(city_name, "city")
-                if (city_translation is None):
-                    city_translation = getOpenAITranslation(city_name, "city")
-                    translatedCities[city_name] = city_translation
-                setTranslation(location, city_translation, "city")
-
-            district_name = location.district_name_pl
-            if (district_name is not None):
-                district_translation = findInAlreadyTranslated(district_name, "district")
-                if (district_translation is None):
-                    district_translation = getOpenAITranslation(district_name, "district")
-                    translatedDistricts[district_name] = district_translation
-                setTranslation(location, district_translation, "district")
-
-            neighbourhood_name = location.neighbourhood_name_pl
-            if (neighbourhood_name is not None):
-                neighbourhood_translation = findInAlreadyTranslated(neighbourhood_name, "neighbourhood")
-                if (neighbourhood_translation is None):
-                    neighbourhood_translation = getOpenAITranslation(neighbourhood_name, "neighbourhood")
-                    translatedNeighbourhoods[neighbourhood_name] = neighbourhood_translation
+            for location in to_translate:
+                neighbourhood_translation = neighbourhood_translations_dict[cast(str, location.name_pl)]
                 setTranslation(location, neighbourhood_translation, "neighbourhood")
+               
+                city_name = location.city_name_pl
+                if (city_name is not None):
+                    city_translation = findInAlreadyTranslated(city_name, "city")
+                    if (city_translation is None):
+                        city_translation = getOpenAITranslation(city_name, "city")
+                        translatedCities[city_name] = city_translation
+                    setTranslation(location, city_translation, "city")
 
-    print("done")
+                district_name = location.district_name_pl
+                if (district_name is not None):
+                    district_translation = findInAlreadyTranslated(district_name, "district")
+                    if (district_translation is None):
+                        district_translation = getOpenAITranslation(district_name, "district")
+                        translatedDistricts[district_name] = district_translation
+                    setTranslation(location, district_translation, "district")
+
+        print("neighbourhoods done, translating streets")
+        # Translate Streets
+        for i in range(0, len(streets), translate_batch_size):
+            to_translate = streets[i:i+translate_batch_size]
+            street_translations = getOpenAITranslations(to_translate, "street").translations
+            street_translations_dict = getTranslationsDictionary(street_translations)
+            translatedStreets.update(street_translations_dict)
+
+            for location in to_translate:
+                street_translation = street_translations_dict[cast(str, location.name_pl)]
+                setTranslation(location, street_translation, "street")
+               
+                city_name = location.city_name_pl
+                if (city_name is not None):
+                    city_translation = findInAlreadyTranslated(city_name, "city")
+                    if (city_translation is None):
+                        city_translation = getOpenAITranslation(city_name, "city")
+                        translatedCities[city_name] = city_translation
+                    setTranslation(location, city_translation, "city")
+
+                district_name = location.district_name_pl
+                if (district_name is not None):
+                    district_translation = findInAlreadyTranslated(district_name, "district")
+                    if (district_translation is None):
+                        district_translation = getOpenAITranslation(district_name, "district")
+                        translatedDistricts[district_name] = district_translation
+                    setTranslation(location, district_translation, "district")
+
+                neighbourhood_name = location.neighbourhood_name_pl
+                if (neighbourhood_name is not None):
+                    neighbourhood_translation = findInAlreadyTranslated(neighbourhood_name, "neighbourhood")
+                    if (neighbourhood_translation is None):
+                        neighbourhood_translation = getOpenAITranslation(neighbourhood_name, "neighbourhood")
+                        translatedNeighbourhoods[neighbourhood_name] = neighbourhood_translation
+                    setTranslation(location, neighbourhood_translation, "neighbourhood")
+        print("done")
+    except: 
+        print(f"Failed to translate all {len(streets) + len(cities) + len(districts) + len(neighbourhoods)} locations. Only done: {len(translated)}")
+        return translated
 
 
 def getOpenAITranslation(location: str, kind: Kind) -> GeoTranslation:
@@ -225,6 +232,7 @@ def setTranslation(location: GeoNode, translation: GeoTranslation, kind: Kind):
             location.name_en = translation.name_en
             location.name_ru = translation.name_ru
             location.name_uk = translation.name_uk
+    translated.append(location)
 
 
 def getTranslationSystemPrompt(single: bool = False) -> str:

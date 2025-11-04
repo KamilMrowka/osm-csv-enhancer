@@ -1,7 +1,8 @@
 import sys
-from geo_csv import read_geo_csv, merge_streets, write_geo_csv
+from geo_csv import GeoNode, read_geo_csv, merge_streets, write_geo_csv
 from translator import translate
 from slugger import slugifyCities, slugifyDistricts, slugifyNeighbourhoods, slugifyStreets
+from typing import List
 
 def main():
     nodes = read_geo_csv(getDataPath())
@@ -13,9 +14,14 @@ def main():
 
     collapsed_streets = merge_streets(streets)
     print("Streets collapsed")
-
     print("translating")
-    translate(cities, districts, neighbourhoods, collapsed_streets)
+
+    translated_before_exception = translate(cities, districts, neighbourhoods, collapsed_streets)
+    if (translated_before_exception is not None):
+        write_geo_csv({"done": translated_before_exception}, f"partial-{getSaveDataPath()}")
+        print("partially translated")
+        return 
+
     print("Translated, adding slugs")
 
     slugifyStreets(collapsed_streets)

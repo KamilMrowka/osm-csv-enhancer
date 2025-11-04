@@ -16,8 +16,6 @@ used_ru = set()
 used_uk = set()
 
 def slugifyStreets(streets: List[GeoNode]) -> None:
-    print("\n\n SLUGIFYING STREETS: ")
-
     for street in streets:
         slugs = generate_slug_for_street(street)
         addSlugsToUsed(slugs)
@@ -28,8 +26,6 @@ def slugifyStreets(streets: List[GeoNode]) -> None:
         street.slug_uk = slugs.slug_uk
 
 def slugifyCities(cities: List[GeoNode]) -> None:
-    print("\n\n SLUGIFYING CITIES: ")
-
     for city in cities:
         slugs = generate_slug_for_city(city)
         addSlugsToUsed(slugs)
@@ -41,8 +37,6 @@ def slugifyCities(cities: List[GeoNode]) -> None:
 
 
 def slugifyDistricts(districts: List[GeoNode]) -> None:
-    print("\n\n SLUGIFYING DISTRICTS: ")
-
     for district in districts:
         slugs = generate_slug_for_district(district)
         addSlugsToUsed(slugs)
@@ -54,8 +48,6 @@ def slugifyDistricts(districts: List[GeoNode]) -> None:
 
    
 def slugifyNeighbourhoods(neighbourhoods: List[GeoNode]) -> None:
-    print("\n\n SLUGIFYING NEIGHBOURHOODS: ")
-
     for neighbourhood in neighbourhoods:
         slugs = generate_slug_for_neighbourhood(neighbourhood)
         addSlugsToUsed(slugs)
@@ -155,7 +147,6 @@ def generate_slug_for_neighbourhood(neighbourhood: GeoNode) -> Slugs:
     return slugs
 
 def addSlugsToUsed(slugs :Slugs):
-    print("Adding slugs:", slugs)  # debug print
     used_pl.add(slugs.slug_pl)
     used_en.add(slugs.slug_en)
     used_ru.add(slugs.slug_ru)
