@@ -193,30 +193,33 @@ def setTranslation(location: GeoNode, translation: GeoTranslation, kind: Kind):
                 location.name_en = translation.name_en
                 location.name_ru = translation.name_ru
                 location.name_uk = translation.name_uk
-            else:
-                location.city_name_en = translation.name_en
-                location.city_name_ru = translation.name_ru
-                location.city_name_uk = translation.name_uk
+
+            location.city_name_pl = location.name_pl
+            location.city_name_en = translation.name_en
+            location.city_name_ru = translation.name_ru
+            location.city_name_uk = translation.name_uk
 
         case "district":
             if (location.kind == "district"):
                 location.name_en = translation.name_en
                 location.name_ru = translation.name_ru
                 location.name_uk = translation.name_uk
-            else:
-                location.district_name_en = translation.name_en
-                location.district_name_ru = translation.name_ru
-                location.district_name_uk = translation.name_uk
+
+            location.district_name_pl = location.name_pl
+            location.district_name_en = translation.name_en
+            location.district_name_ru = translation.name_ru
+            location.district_name_uk = translation.name_uk
 
         case "neighbourhood":
             if (location.kind == "neighbourhood"):
                 location.name_en = translation.name_en
                 location.name_ru = translation.name_ru
                 location.name_uk = translation.name_uk
-            else:
-                location.neighbourhood_name_en = translation.name_en
-                location.neighbourhood_name_ru = translation.name_ru
-                location.neighbourhood_name_uk = translation.name_uk
+
+            location.neighbourhood_name_pl = location.name_pl
+            location.neighbourhood_name_en = translation.name_en
+            location.neighbourhood_name_ru = translation.name_ru
+            location.neighbourhood_name_uk = translation.name_uk
 
         case "street":
             location.name_en = translation.name_en
