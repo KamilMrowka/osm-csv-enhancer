@@ -47,28 +47,35 @@ class GeoNode:
     bbox: Optional[str]
     raw: Optional[str]
 
+
 def read_geo_csv(file_path: str) -> Dict[str, List[GeoNode]]:
     result = {
-         "streets": [],
-         "neighbourhoods": [],
-         "cities": [],
-         "districts": []
+        "streets": [],
+        "neighbourhoods": [],
+        "cities": [],
+        "districts": []
     }
-
     if not os.path.exists(file_path):
         return result
+
+    seen_osm_ids = set()
 
     with open(file_path, newline='', encoding='utf-8') as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
+            osm_id = row.get("osm_id")
+            if not osm_id or osm_id in seen_osm_ids:
+                continue
+            seen_osm_ids.add(osm_id)
+
             node = GeoNode(
                 osm_type=row.get('osm_type'),
-                osm_id=row.get('osm_id'),
+                osm_id=osm_id,
                 kind=cast(
                     Kind, 
                     (
                         row.get('kind') 
-                        if row.get('kind') is not None and row.get('kind') in ["city", "district", "neighbourhood", "street"] 
+                        if row.get('kind') in ["city", "district", "neighbourhood", "street"] 
                         else "unknown"
                     )
                 ),
@@ -98,7 +105,7 @@ def read_geo_csv(file_path: str) -> Dict[str, List[GeoNode]]:
                 raw=row.get('raw')
             )
 
-            kind = row.get("kind")
+            kind = node.kind
             if kind == "street":
                 result["streets"].append(node)
             elif kind == "neighbourhood":
@@ -107,8 +114,72 @@ def read_geo_csv(file_path: str) -> Dict[str, List[GeoNode]]:
                 result["cities"].append(node)
             elif kind == "district":
                 result["districts"].append(node)
+
     return result
 
+
+# def read_geo_csv(file_path: str) -> Dict[str, List[GeoNode]]:
+#     result = {
+#          "streets": [],
+#          "neighbourhoods": [],
+#          "cities": [],
+#          "districts": []
+#     }
+# 
+#     if not os.path.exists(file_path):
+#         return result
+# 
+#     with open(file_path, newline='', encoding='utf-8') as csvfile:
+#         reader = csv.DictReader(csvfile)
+#         for row in reader:
+#             node = GeoNode(
+#                 osm_type=row.get('osm_type'),
+#                 osm_id=row.get('osm_id'),
+#                 kind=cast(
+#                     Kind, 
+#                     (
+#                         row.get('kind') 
+#                         if row.get('kind') is not None and row.get('kind') in ["city", "district", "neighbourhood", "street"] 
+#                         else "unknown"
+#                     )
+#                 ),
+#                 name_pl=row.get('name_pl'),
+#                 name_en=row.get('name_en'),
+#                 name_ru=row.get('name_ru'),
+#                 name_uk=row.get('name_uk'),
+#                 slug_pl=row.get('slug_pl'),
+#                 slug_en=row.get('slug_en'),
+#                 slug_ru=row.get('slug_ru'),
+#                 slug_uk=row.get('slug_uk'),
+#                 name_norm=row.get('name_norm'),
+#                 city_name_pl=row.get('city_name_pl'),
+#                 city_name_en=row.get('city_name_en'),
+#                 city_name_ru=row.get('city_name_ru'),
+#                 city_name_uk=row.get('city_name_uk'),
+#                 district_name_pl=row.get('district_name_pl'),
+#                 district_name_en=row.get('district_name_en'),
+#                 district_name_ru=row.get('district_name_ru'),
+#                 district_name_uk=row.get('district_name_uk'),
+#                 neighbourhood_name_pl=row.get('neighbourhood_name_pl'),
+#                 neighbourhood_name_en=row.get('neighbourhood_name_en'),
+#                 neighbourhood_name_ru=row.get('neighbourhood_name_ru'),
+#                 neighbourhood_name_uk=row.get('neighbourhood_name_uk'),
+#                 geom=row.get('geom'),
+#                 bbox=row.get('bbox'),
+#                 raw=row.get('raw')
+#             )
+# 
+#             kind = row.get("kind")
+#             if kind == "street":
+#                 result["streets"].append(node)
+#             elif kind == "neighbourhood":
+#                 result["neighbourhoods"].append(node)
+#             elif kind == "city":
+#                 result["cities"].append(node)
+#             elif kind == "district":
+#                 result["districts"].append(node)
+#     return result
+# 
 
 from dataclasses import asdict
 import os
@@ -174,7 +245,6 @@ def collapse_street(streets: List[GeoNode]):
 
     multi_line_string = MultiLineString(all_coords)
     collapsed_street = copy.copy(streets[0]) 
-    print(f"collapsed street have kind: {collapsed_street.kind}")
     collapsed_street.geom = multi_line_string.wkt
 
     return collapsed_street
