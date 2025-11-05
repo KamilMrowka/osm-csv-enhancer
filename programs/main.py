@@ -1,8 +1,8 @@
+from datetime import datetime
 import sys
-from geo_csv import GeoNode, read_geo_csv, merge_streets, write_geo_csv
+from geo_csv import read_geo_csv, merge_streets, write_geo_csv
 from translator import translate
 from slugger import slugifyCities, slugifyDistricts, slugifyNeighbourhoods, slugifyStreets
-from typing import List
 
 def main():
     nodes = read_geo_csv(getDataPath())
@@ -18,9 +18,9 @@ def main():
 
     translated_before_exception = translate(cities, districts, neighbourhoods, collapsed_streets)
     if (translated_before_exception is not None):
-        write_geo_csv({"done": translated_before_exception}, f"partial-{getSaveDataPath()}")
+        write_geo_csv({"done": translated_before_exception}, f"{getSaveDataPath(True)}")
         print("partially translated")
-        return 
+        return
 
     print("Translated, adding slugs")
 
@@ -47,9 +47,16 @@ def getDataPath():
     test_path = "data/updated_tiny.csv"
     return actual_path if isFullExport() else test_path
 
-def getSaveDataPath():
-    actual_path = "data/results/geo_out.csv"
-    test_path = "data/results/tiny_out.csv"
+def getSaveDataPath(partial: bool = False):
+    time = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    if (partial):
+        actual_partial_path = f"data/results/partial-geo_out_{time}.csv"
+        test_partial_path = f"data/results/partial-tiny_out_{time}.csv"
+        return actual_partial_path if isFullExport() else test_partial_path
+
+    actual_path = f"data/results/geo_out_{time}.csv"
+    test_path = f"data/results/tiny_out_{time}.csv"
     return actual_path if isFullExport() else test_path
 
 

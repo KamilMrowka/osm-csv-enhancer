@@ -1,3 +1,4 @@
+from logging import raiseExceptions
 from openai import OpenAI
 from openai import OpenAI
 from pydantic import BaseModel
@@ -27,12 +28,15 @@ translatedDistricts: Dict[str, GeoTranslation] = {}
 translatedNeighbourhoods: Dict[str, GeoTranslation] = {} 
 translatedStreets: Dict[str, GeoTranslation] = {} 
 
-translate_batch_size = 100
+translate_batch_size = 25
+should_retry = 2 
 translated: List[GeoNode] = []
 
 def getTranslationsDictionary(translations: List[GeoTranslation]):
     dictionary: Dict[str, GeoTranslation] = {}
     for translation in translations:
+        if translation.name_pl is None:
+            continue
         dictionary[translation.name_pl] = translation
     return dictionary
 
@@ -49,7 +53,10 @@ def translate(cities: List[GeoNode], districts: List[GeoNode], neighbourhoods: L
         translatedCities.update(city_translations_dict)
 
         for city in cities:
-            setTranslation(city, city_translations_dict[cast(str, city.name_pl)], "city")
+            translation = city_translations_dict.get(cast(str, city.name_pl))
+            if (translation is None):
+                translation = getOpenAITranslation(cast(str, city.name_pl), "city")
+            setTranslation(city, translation, "city")
 
         print("cities done, translating districts")
         # Translate Disctrics and add City Translation to them
@@ -61,11 +68,14 @@ def translate(cities: List[GeoNode], districts: List[GeoNode], neighbourhoods: L
             translatedDistricts.update(district_translations_dict)
 
             for location in to_translate:
-                district_translation = translatedDistricts[cast(str, location.name_pl)]
+                district_translation = translatedDistricts.get(cast(str, location.name_pl))
+                if (district_translation is None):
+                    district_translation = getOpenAITranslation(cast(str, location.name_pl), "district")
+
                 setTranslation(location, district_translation, "district")
                
                 city_name = location.city_name_pl
-                if (city_name is not None):
+                if (city_name is not None and city_name != ""):
                     city_translation = findInAlreadyTranslated(city_name, "city")
                     if (city_translation is None):
                         city_translation = getOpenAITranslation(city_name, "city")
@@ -81,11 +91,13 @@ def translate(cities: List[GeoNode], districts: List[GeoNode], neighbourhoods: L
             translatedNeighbourhoods.update(neighbourhood_translations_dict)
 
             for location in to_translate:
-                neighbourhood_translation = neighbourhood_translations_dict[cast(str, location.name_pl)]
+                neighbourhood_translation = neighbourhood_translations_dict.get(cast(str, location.name_pl))
+                if (neighbourhood_translation is None):
+                    neighbourhood_translation = getOpenAITranslation(cast(str, location.name_pl), "neighbourhood")
                 setTranslation(location, neighbourhood_translation, "neighbourhood")
                
                 city_name = location.city_name_pl
-                if (city_name is not None):
+                if (city_name is not None and city_name != ""):
                     city_translation = findInAlreadyTranslated(city_name, "city")
                     if (city_translation is None):
                         city_translation = getOpenAITranslation(city_name, "city")
@@ -93,7 +105,7 @@ def translate(cities: List[GeoNode], districts: List[GeoNode], neighbourhoods: L
                     setTranslation(location, city_translation, "city")
 
                 district_name = location.district_name_pl
-                if (district_name is not None):
+                if (district_name is not None and district_name != ""):
                     district_translation = findInAlreadyTranslated(district_name, "district")
                     if (district_translation is None):
                         district_translation = getOpenAITranslation(district_name, "district")
@@ -108,53 +120,80 @@ def translate(cities: List[GeoNode], districts: List[GeoNode], neighbourhoods: L
             street_translations_dict = getTranslationsDictionary(street_translations)
             translatedStreets.update(street_translations_dict)
 
+            print(f"Translated {len(to_translate)}, not saved yet")
+
             for location in to_translate:
-                street_translation = street_translations_dict[cast(str, location.name_pl)]
+                print(f"Finalizing Translating For Street: {location.name_pl}, {location.city_name_pl}, {location.district_name_pl}")
+                street_translation = street_translations_dict.get(cast(str, location.name_pl))
+                print(f"Fount translation: {street_translation}")
+                if (street_translation is None):
+                    street_translation = getOpenAITranslation(cast(str, location.name_pl), "street")
                 setTranslation(location, street_translation, "street")
+                print(f"set translation")
                
                 city_name = location.city_name_pl
-                if (city_name is not None):
+                if (city_name is not None and city_name != ""):
                     city_translation = findInAlreadyTranslated(city_name, "city")
                     if (city_translation is None):
+                        print(f"not found city translation for street: {city_translation}, calling openai")
                         city_translation = getOpenAITranslation(city_name, "city")
                         translatedCities[city_name] = city_translation
+                    
+                    print(f"setting city trasnslation for street: {location.name_pl}:\n {city_translation}")
                     setTranslation(location, city_translation, "city")
 
                 district_name = location.district_name_pl
-                if (district_name is not None):
+                if (district_name is not None and district_name != ""):
                     district_translation = findInAlreadyTranslated(district_name, "district")
                     if (district_translation is None):
                         district_translation = getOpenAITranslation(district_name, "district")
                         translatedDistricts[district_name] = district_translation
+                    print(f"setting district for street, {district_translation}")
                     setTranslation(location, district_translation, "district")
 
                 neighbourhood_name = location.neighbourhood_name_pl
-                if (neighbourhood_name is not None):
+                if (neighbourhood_name is not None and neighbourhood_name != ""):
                     neighbourhood_translation = findInAlreadyTranslated(neighbourhood_name, "neighbourhood")
                     if (neighbourhood_translation is None):
                         neighbourhood_translation = getOpenAITranslation(neighbourhood_name, "neighbourhood")
                         translatedNeighbourhoods[neighbourhood_name] = neighbourhood_translation
                     setTranslation(location, neighbourhood_translation, "neighbourhood")
-        print("done")
-    except: 
-        print(f"Failed to translate all {len(streets) + len(cities) + len(districts) + len(neighbourhoods)} locations. Only done: {len(translated)}")
-        return translated
 
+        print("done")
+    except Exception as e: 
+        print(f"Failed to translate all {len(streets) + len(cities) + len(districts) + len(neighbourhoods)} locations. Only done: {len(translated)}")
+        print("Caught: ", e)
+        return translated
 
 def getOpenAITranslation(location: str, kind: Kind) -> GeoTranslation:
     response = client.beta.chat.completions.parse(
-    model="gpt-5-nano",
-    messages=[
-        {"role": "system", "content": getTranslationSystemPrompt(True)},
-        {"role": "user", "content": f"Location: '{location}'\nKind: {kind}"},
-    ],
-    response_format=GeoTranslation,
-    reasoning_effort="minimal"
-)
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": getTranslationSystemPrompt(True)},
+            {"role": "user", "content": f"Location: '{location}'\nKind: {kind}"},
+        ],
+        response_format=GeoTranslation
+    )
     translation = response.choices[0].message.parsed
-    if translation is None:
-        raise  Exception(f"Failed to translate {location}")
 
+    retry_count = 0
+    while (translation is None and retry_count < should_retry):
+        print(f"Failed to translate {location}, retrying for the {retry_count} time out of {should_retry}")
+        response = client.beta.chat.completions.parse(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": getTranslationSystemPrompt(True)},
+                {"role": "user", "content": f"Location: '{location}'\nKind: {kind}"},
+            ],
+            response_format=GeoTranslation,
+        )
+
+        translation = response.choices[0].message.parsed
+        retry_count += 1
+    
+    if (translation is None):
+        raise Exception("Failed to translate, out of retries")
+    print("\n\nTranslation", translation, "\n\n")
     return translation
 
 
@@ -172,15 +211,26 @@ def getOpenAITranslations(locations: List[GeoNode], kind: Kind) -> GptTranslatio
 
     translation = response.choices[0].message.parsed
 
-    if (translation is not None):
-        print(f"Translated {kind} kind with openai, amount: {len(translation.translations)}")
-    else:
-        print(f"Failed to translat {kind} kind with openai, returned list is empty")
-    if translation is None:
-        raise  Exception(f"Failed to translate {len(locations)} locations.")
+    retry_count = 0
+    while (translation is None and retry_count < should_retry):
+        print(f"Failed to translate {len(locations)}, retrying for the {retry_count} time, out of {should_retry}")
+        response = client.beta.chat.completions.parse(
+            model="gpt-5-nano",
+            messages=[
+                {"role": "system", "content": getTranslationSystemPrompt()},
+                {"role": "user", "content": getTranslationUserPrompt(locations, kind)}
+            ],
+            response_format=GptTranslationResponse,
+            reasoning_effort="minimal"
+        )
+        translation = response.choices[0].message.parsed
+        retry_count += 1
+
+    if (translation is None):
+        raise Exception("Failed to trasnslate, out of retries")
+    print("\n\nTranslations", translation.translations, "\n\n")
 
     return translation
-
 
 def findInAlreadyTranslated(name_pl: str, kind: Kind) -> GeoTranslation | None:
     match kind:
@@ -200,8 +250,8 @@ def setTranslation(location: GeoNode, translation: GeoTranslation, kind: Kind):
                 location.name_en = translation.name_en
                 location.name_ru = translation.name_ru
                 location.name_uk = translation.name_uk
+                location.city_name_pl = location.name_pl
 
-            location.city_name_pl = location.name_pl
             location.city_name_en = translation.name_en
             location.city_name_ru = translation.name_ru
             location.city_name_uk = translation.name_uk
@@ -211,8 +261,8 @@ def setTranslation(location: GeoNode, translation: GeoTranslation, kind: Kind):
                 location.name_en = translation.name_en
                 location.name_ru = translation.name_ru
                 location.name_uk = translation.name_uk
+                location.district_name_pl = location.name_pl
 
-            location.district_name_pl = location.name_pl
             location.district_name_en = translation.name_en
             location.district_name_ru = translation.name_ru
             location.district_name_uk = translation.name_uk
@@ -222,16 +272,17 @@ def setTranslation(location: GeoNode, translation: GeoTranslation, kind: Kind):
                 location.name_en = translation.name_en
                 location.name_ru = translation.name_ru
                 location.name_uk = translation.name_uk
+                location.neighbourhood_name_pl = location.name_pl
 
-            location.neighbourhood_name_pl = location.name_pl
             location.neighbourhood_name_en = translation.name_en
             location.neighbourhood_name_ru = translation.name_ru
             location.neighbourhood_name_uk = translation.name_uk
 
         case "street":
-            location.name_en = translation.name_en
-            location.name_ru = translation.name_ru
-            location.name_uk = translation.name_uk
+            if (location.kind == "street"):
+                location.name_en = translation.name_en
+                location.name_ru = translation.name_ru
+                location.name_uk = translation.name_uk
     translated.append(location)
 
 
@@ -241,14 +292,14 @@ def getTranslationSystemPrompt(single: bool = False) -> str:
         return """
         You are a professional translator. Your task now is to translate location names from Poland to these target languages: English, Russian, Ukrainian.
         You will be given either a city, district, neighbourhood or a streets to translate.
-        In the response give the translation for all three of the required languages. For empty location just return empty strings.
+        In the response give the translation for all three of the required languages. For empty input location just return empty strings.
         """
 
     return """
     You are a professional translator. Your task now is to translate location names from Poland to these target languages: English, Russian, Ukrainian.
     You will be given a list of either Cities, Districts, neighbourhoods or Streets to translate. 
     All elements in the given list will be of the same kind and you will always be told what kind of locations you have to translate this time.
-    In the response give the translation for all three of the required languages. For empty location just return empty strings.
+    In the response give the translation for all three of the required languages. For empty input locations if present, just don't inlude them in the translations list in the response.
     """
 
 
